@@ -185,100 +185,123 @@ echo "============================================"
 echo ""
 
 # ---------------------------------------------------------------------------
-# Token map (written to file to avoid arg limits)
+# Token map — native tokens (offline fallback) + dynamic token lists
 # ---------------------------------------------------------------------------
 TOKEN_FILE=$(mktemp)
+
+# Native/gas tokens per chain (not in ERC-20 token lists, 0xeee...eee)
 cat > "$TOKEN_FILE" << 'TOKENEOF'
 {
-  "ethereum:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2":{"s":"WETH","d":18},
-  "ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48":{"s":"USDC","d":6},
-  "ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7":{"s":"USDT","d":6},
-  "ethereum:0x6b175474e89094c44da98b954eedeac495271d0f":{"s":"DAI","d":18},
-  "ethereum:0xdef1ca1fb7fbcdc777520aa7f396b4e015f497ab":{"s":"COW","d":18},
-  "ethereum:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599":{"s":"WBTC","d":8},
-  "ethereum:0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9":{"s":"AAVE","d":18},
-  "ethereum:0x514910771af9ca656af840dff83e8264ecf986ca":{"s":"LINK","d":18},
-  "ethereum:0x1f9840a85d5af5bf1d1762f925bdaddc4201f984":{"s":"UNI","d":18},
-  "ethereum:0x5a98fcbea516cf06857215779fd812ca3bef1b32":{"s":"LDO","d":18},
-  "ethereum:0xae7ab96520de3a18e5e111b5eaab095312d7fe84":{"s":"stETH","d":18},
-  "ethereum:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0":{"s":"wstETH","d":18},
-  "ethereum:0xbe9895146f7af43049ca1c1ae358b0541ea49704":{"s":"cbETH","d":18},
-  "ethereum:0xd533a949740bb3306d119cc777fa900ba034cd52":{"s":"CRV","d":18},
-  "ethereum:0xba100000625a3754423978a60c9317c58a424e3d":{"s":"BAL","d":18},
-  "ethereum:0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2":{"s":"MKR","d":18},
-  "ethereum:0x6810e776880c02933d47db1b9fc05908e5386b96":{"s":"GNO","d":18},
-  "ethereum:0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f":{"s":"GHO","d":18},
-  "ethereum:0x111111111117dc0aa78b770fa6a738034120c302":{"s":"1INCH","d":18},
-  "ethereum:0xc18360217d8f7ab5e7c516566761ea12ce7f9d72":{"s":"ENS","d":18},
   "ethereum:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"ETH","d":18},
-  "ethereum:0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0":{"s":"MATIC","d":18},
-  "ethereum:0xfaba6f8e4a5e8ab82f62fe7c39859fa577269be3":{"s":"ONDO","d":18},
-  "ethereum:0x14c3abf95cb9c93a8b82c1cdcb76d72cb87b2d4c":{"s":"AAPLon","d":18},
-  "ethereum:0xbb8774fb97436d23d74c1b882e8e9a69322cfd31":{"s":"AMZNon","d":18},
-  "ethereum:0xf3e4872e6a4cf365888d93b6146a2baa7348f1a4":{"s":"SLVon","d":18},
-  "ethereum:0xfedc5f4a6c38211c1338aa411018dfaf26612c08":{"s":"SPYon","d":18},
-  "ethereum:0x03c1ec4ca9dbb168e6db0def827c085999cbffaf":{"s":"JPMon","d":18},
-  "ethereum:0xf6b1117ec07684d3958cad8beb1b302bfd21103f":{"s":"TSLAon","d":18},
-  "ethereum:0x0e397938c1aa0680954093495b70a9f5e2249aba":{"s":"QQQon","d":18},
-  "ethereum:0x7a0f89c1606f71499950aa2590d547c3975b728e":{"s":"BLKon","d":18},
-  "ethereum:0x62ca254a363dc3c748e7e955c20447ab5bf06ff7":{"s":"IVVon","d":18},
-  "ethereum:0x7042a8ffc7c7049684bfbc2fcb41b72380755a43":{"s":"ADBEon","d":18},
-  "ethereum:0x4d21affd27183b07335935f81a5c26b6a5a15355":{"s":"APOon","d":18},
-  "gnosis:0xe91d153e0b41518a2ce8dd3d7944fa863463a97d":{"s":"WXDAI","d":18},
-  "gnosis:0x6a023ccd1ff6f2045c3309768ead9e68f978f6e1":{"s":"WETH","d":18},
-  "gnosis:0x9c58bacc331c9aa871afd802db6379a98e80cedb":{"s":"GNO","d":18},
-  "gnosis:0x177127622c4a00f3d409b75571e12cb3c8973d3c":{"s":"COW","d":18},
-  "gnosis:0xddafbb505ad214d7b80b1f830fccc89b60fb7a83":{"s":"USDC","d":6},
-  "gnosis:0x4ecaba5870353805a9f068101a40e0f32ed605c6":{"s":"USDT","d":6},
-  "gnosis:0x8e5bbbb09ed1ebde8674cda39a0c169401db4252":{"s":"WBTC","d":8},
-  "gnosis:0xaf204776c7245bf4147c2612bf6e5972ee483701":{"s":"sDAI","d":18},
-  "gnosis:0xcb444e90d8198415266c6a2724b7900fb12fc56e":{"s":"EURe","d":18},
   "gnosis:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"xDAI","d":18},
-  "arbitrum:0x82af49447d8a07e3bd95bd0d56f35241523fbab1":{"s":"WETH","d":18},
-  "arbitrum:0xaf88d065e77c8cc2239327c5edb3a432268e5831":{"s":"USDC","d":6},
-  "arbitrum:0xff970a61a04b1ca14834a43f5de4533ebddb5cc8":{"s":"USDC.e","d":6},
-  "arbitrum:0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9":{"s":"USDT","d":6},
-  "arbitrum:0xda10009cbd5d07dd0cecc66161fc93d7c9000da1":{"s":"DAI","d":18},
-  "arbitrum:0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f":{"s":"WBTC","d":8},
-  "arbitrum:0xcb8b5cd20bdcaea9a010ac1f8d835824f5c87a04":{"s":"COW","d":18},
-  "arbitrum:0x912ce59144191c1204e64559fe8253a0e49e6548":{"s":"ARB","d":18},
-  "arbitrum:0x5979d7b546e38e414f7e9822514be443a4800529":{"s":"wstETH","d":18},
   "arbitrum:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"ETH","d":18},
-  "base:0x4200000000000000000000000000000000000006":{"s":"WETH","d":18},
-  "base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913":{"s":"USDC","d":6},
-  "base:0x50c5725949a6f0c72e6c4a641f24049a917db0cb":{"s":"DAI","d":18},
-  "base:0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca":{"s":"USDbC","d":6},
-  "base:0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452":{"s":"wstETH","d":18},
   "base:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"ETH","d":18},
-  "avalanche:0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7":{"s":"WAVAX","d":18},
-  "avalanche:0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e":{"s":"USDC","d":6},
-  "avalanche:0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7":{"s":"USDT","d":6},
   "avalanche:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"AVAX","d":18},
-  "polygon:0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270":{"s":"WMATIC","d":18},
-  "polygon:0x3c499c542cef5e3811e1192ce70d8cc03d5c3359":{"s":"USDC","d":6},
-  "polygon:0x2791bca1f2de4661ed88a30c99a7a9449aa84174":{"s":"USDC.e","d":6},
-  "polygon:0x7ceb23fd6bc0add59e62ac25578270cff1b9f619":{"s":"WETH","d":18},
-  "polygon:0xc2132d05d31c914a87c6611c10748aeb04b58e8f":{"s":"USDT","d":6},
-  "polygon:0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6":{"s":"WBTC","d":8},
   "polygon:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"MATIC","d":18},
-  "bnb:0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c":{"s":"WBNB","d":18},
-  "bnb:0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d":{"s":"USDC","d":18},
-  "bnb:0x55d398326f99059ff775485246999027b3197955":{"s":"USDT","d":18},
-  "bnb:0x2170ed0880ac9a755fd29b2688956bd959f933f8":{"s":"ETH","d":18},
-  "bnb:0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c":{"s":"BTCB","d":18},
   "bnb:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"BNB","d":18},
-  "linea:0xe5d7c2a44ffddf6b295a15c148167daaaf5cf34f":{"s":"WETH","d":18},
-  "linea:0x176211869ca2b568f2a7d4ee941e073a821ee1ff":{"s":"USDC","d":6},
   "linea:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"ETH","d":18},
   "lens:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"GHO","d":18},
-  "ink:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"ETH","d":18},
-  "ethereum:0x93ed3fbe21207ec2e8f2d3c3de6e058cb73bc04d":{"s":"PNK","d":18},
-  "ethereum:0xc0c293ce456ff0ed870add98a0828dd4d2903dbf":{"s":"AURA","d":18},
-  "ethereum:0x19062190b1925b5b6689d7073fdfc8c2976ef8cb":{"s":"BZZ","d":16},
-  "ethereum:0x455e53cbb86018ac2b8092fdcd39d8444affc3f6":{"s":"POL","d":18},
-  "polygon:0x8f3cf7ad23cd3cadbd9735aff958023239c6a063":{"s":"DAI","d":18}
+  "ink:0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee":{"s":"ETH","d":18}
 }
 TOKENEOF
+
+# ---------------------------------------------------------------------------
+# Fetch token lists — pulls curated lists from CoW Protocol + CoinGecko
+# and merges them into TOKEN_FILE. Falls back gracefully if offline.
+#
+# Token list format (Uniswap standard):
+#   { "tokens": [ { "chainId": 1, "address": "0x...", "symbol": "WETH", "decimals": 18 }, ... ] }
+#
+# Sources:
+#   - https://files.cow.fi/tokens/CowSwap.json       (CoW curated, all chains)
+#   - https://files.cow.fi/tokens/CoinGecko.<id>.json (per chain, broad coverage)
+# ---------------------------------------------------------------------------
+
+# Convert a standard token list JSON into our chain:addr → {s,d} format
+# Reads from file $1, outputs merged JSON to stdout
+tokenlist_to_map() {
+    local file="$1"
+    jq '
+        [.tokens[] |
+            select(.chainId and .address and .symbol and .decimals) |
+            {
+                key: ((.chainId | tostring) + ":" + (.address | ascii_downcase)),
+                value: { s: .symbol, d: .decimals }
+            }
+        ] | from_entries
+    ' "$file" 2>/dev/null || echo '{}'
+}
+
+echo ""
+echo "Fetching token lists..."
+
+# Collect all token list URLs
+TOKEN_LIST_URLS=(
+    "https://files.cow.fi/tokens/CowSwap.json"
+)
+for cid in "${CHAIN_IDS[@]}"; do
+    TOKEN_LIST_URLS+=("https://files.cow.fi/tokens/CoinGecko.${cid}.json")
+done
+
+fetched_lists=0
+total_tokens_loaded=0
+
+for url in "${TOKEN_LIST_URLS[@]}"; do
+    LIST_FILE=$(mktemp)
+    list_name="${url##*/}"
+
+    if curl -s --connect-timeout 5 -m 15 -o "$LIST_FILE" "$url" 2>/dev/null \
+       && [ -s "$LIST_FILE" ] \
+       && jq -e '.tokens | type == "array"' "$LIST_FILE" &>/dev/null; then
+
+        # Convert to our format, replacing chainId with chain name
+        MAP_FILE=$(mktemp)
+        tokenlist_to_map "$LIST_FILE" > "$MAP_FILE"
+
+        # Replace numeric chainId keys with chain names
+        NAMED_FILE=$(mktemp)
+        jq '
+            to_entries | map(
+                (.key | split(":")) as $parts |
+                ($parts[0] | tonumber) as $cid |
+                (if   $cid == 1     then "ethereum"
+                 elif $cid == 100   then "gnosis"
+                 elif $cid == 42161 then "arbitrum"
+                 elif $cid == 8453  then "base"
+                 elif $cid == 43114 then "avalanche"
+                 elif $cid == 137   then "polygon"
+                 elif $cid == 56    then "bnb"
+                 elif $cid == 59144 then "linea"
+                 elif $cid == 232   then "lens"
+                 elif $cid == 57073 then "ink"
+                 else null end) as $name |
+                select($name != null) |
+                { key: ($name + ":" + $parts[1]), value: .value }
+            ) | from_entries
+        ' "$MAP_FILE" > "$NAMED_FILE" 2>/dev/null || echo '{}' > "$NAMED_FILE"
+
+        count=$(jq 'length' "$NAMED_FILE" 2>/dev/null || echo 0)
+        if [ "$count" -gt 0 ]; then
+            # Merge into TOKEN_FILE (new entries don't overwrite existing)
+            jq -s '.[1] * .[0]' "$TOKEN_FILE" "$NAMED_FILE" > "${TOKEN_FILE}.tmp" \
+                && mv "${TOKEN_FILE}.tmp" "$TOKEN_FILE"
+            total_tokens_loaded=$((total_tokens_loaded + count))
+            fetched_lists=$((fetched_lists + 1))
+            echo "  + ${list_name}: ${count} tokens"
+        fi
+        rm -f "$MAP_FILE" "$NAMED_FILE"
+    fi
+    rm -f "$LIST_FILE"
+done
+
+if [ "$fetched_lists" -gt 0 ]; then
+    final_count=$(jq 'length' "$TOKEN_FILE" 2>/dev/null || echo 0)
+    echo "  => ${final_count} tokens loaded from ${fetched_lists} lists"
+else
+    echo "  Could not fetch token lists (offline?). Using native tokens only."
+    echo "  Unknown tokens will be resolved via on-chain RPC calls."
+fi
+echo ""
 
 # ---------------------------------------------------------------------------
 # Temp files — ALL large JSON goes via files, never shell args
