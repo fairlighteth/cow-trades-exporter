@@ -139,6 +139,28 @@ Building CSV...
   Moo! Happy tax season.  (o)~
 ```
 
+## Example CSV
+
+Here's what the output looks like (columns truncated for readability):
+
+| Date (UTC) | Chain | Direction | Sell Token | Sell Token Address | Sell Amount | Buy Token | Buy Token Address | Buy Amount | Fee Amount |
+|---|---|---|---|---|---|---|---|---|---|
+| 2024-03-15T10:23:01Z | ethereum | sell | WETH | 0xc02aaa...756cc2 | 1.5 | USDC | 0xa0b869...e18ad8 | 5,234.12 | 0.003 |
+| 2024-03-16T14:05:33Z | ethereum | sell | USDC | 0xa0b869...e18ad8 | 2,000 | COW | 0xdef1ca...8c46eb | 8,421.37 | 4.52 |
+| 2024-04-01T09:12:44Z | arbitrum | buy | ARB | 0x912ce5...e5b0f7 | 500 | USDC | 0xaf88d0...e5b0f7 | 612.50 | 0.85 |
+| 2024-04-10T18:30:00Z | gnosis | sell | WXDAI | 0xe91d15...3a97d | 1,000 | COW | 0x177127...8973d3 | 12,345.67 | 0.001 |
+| 2024-05-22T11:00:15Z | bnb | sell | USDC | 0x8ac76a...b72223 | 500 | AAPLon | 0x390a68...018eb9 | 2.156 | 1.20 |
+
+<details>
+<summary>Full 20-column CSV header</summary>
+
+```
+Date (UTC),Chain,Direction,Order Class,Sell Token,Sell Token Address,Sell Amount,Buy Token,Buy Token Address,Buy Amount,Fee Amount,Fee Token,Tx Hash,Block Explorer,CoW Explorer,Owner,Receiver,Order UID,Partial Fill,Status
+```
+</details>
+
+Each row also includes: Order Class, Fee Token, Tx Hash, Block Explorer link, CoW Explorer link, Owner, Receiver, Order UID, Partial Fill flag, and Status. Token addresses are always present even when the symbol was resolved, so you can cross-reference on-chain.
+
 ## License
 
 [MIT](LICENSE)
