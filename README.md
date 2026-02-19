@@ -25,7 +25,7 @@ Ethereum · Gnosis · Arbitrum · Base · Avalanche · Polygon · BNB · Linea �
 1. **Fetch orders** — Paginates through `/account/{owner}/orders` on each chain's CoW API
 2. **Fetch trades** — Queries `/trades?owner=` to catch eth-flow orders and all fill events
 3. **Reconcile** — Cross-references both sources to find orphaned trades (eth-flow, programmatic orders) and fetches their order details individually
-4. **Resolve tokens** — Unknown tokens are looked up on-chain via batched `eth_call` RPC requests (`symbol()` + `decimals()`). Falls back to sequential calls if the RPC doesn't support batching
+4. **Resolve tokens** — Fetches curated token lists (CoW + CoinGecko, ~3,000+ tokens), then resolves remaining unknowns via batched on-chain RPC calls, with sequential fallback (see [Token resolution](#token-resolution))
 5. **Generate CSV** — Merges everything into a single sorted CSV with 20 columns
 
 ### CSV columns
@@ -190,11 +190,30 @@ Works with any shell invocation — `sh`, `bash`, `zsh`, or `./` — the script 
 
 ## Token resolution
 
-The script ships with a built-in cache of ~90 common tokens (WETH, USDC, COW, DAI, stablecoins, Ondo tokenized stocks, etc.) across all chains.
+Token symbols and decimals are resolved through a 3-tier fallback system. Each tier catches what the previous one missed, so the script works reliably whether you're online, offline, or dealing with obscure tokens.
 
-For any token not in the cache, it makes on-chain RPC calls to the token contract's `symbol()` and `decimals()` functions. These are batched per chain into a single JSON-RPC request to minimize network calls. If the RPC doesn't respond or doesn't support batching, it falls back to sequential calls with rate limiting.
+### Tier 1 — Token lists (bulk, ~3,000+ tokens)
 
-Tokens that still can't be resolved show up with their full contract address as the symbol — so you never lose data.
+On startup the script fetches curated token lists covering all 10 chains:
+
+- [CoW Protocol curated list](https://files.cow.fi/tokens/CowSwap.json) (~260 tokens)
+- [CoinGecko per-chain lists](https://github.com/cowprotocol/token-lists) (~500 tokens each for major chains)
+
+This resolves the vast majority of tokens with zero RPC calls. Lists are fetched fresh each run so new tokens are picked up automatically.
+
+### Tier 2 — Batched on-chain RPC
+
+Any token not found in the lists is resolved via `eth_call` to the token contract's `symbol()` and `decimals()` functions. Calls are **batched per chain** into a single JSON-RPC request, so even 30 unknown tokens on Ethereum is just one HTTP call.
+
+### Tier 3 — Sequential RPC fallback
+
+If the RPC endpoint doesn't support batch requests, the script falls back to individual sequential calls with rate limiting (0.3s between calls).
+
+### Offline / unresolvable tokens
+
+- **Native gas tokens** (ETH, xDAI, AVAX, MATIC, BNB, GHO) are hardcoded — they always resolve, even offline.
+- If token lists can't be fetched (no internet), the script continues and relies on tiers 2–3.
+- Tokens that still can't be resolved show up with their full contract address as the symbol — you never lose data.
 
 ## Example output
 

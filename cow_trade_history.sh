@@ -240,7 +240,7 @@ TOKEN_LIST_URLS=(
     "https://files.cow.fi/tokens/CowSwap.json"
 )
 for cid in "${CHAIN_IDS[@]}"; do
-    TOKEN_LIST_URLS+=("https://files.cow.fi/tokens/CoinGecko.${cid}.json")
+    TOKEN_LIST_URLS+=("https://raw.githubusercontent.com/cowprotocol/token-lists/main/src/public/CoinGecko.${cid}.json")
 done
 
 fetched_lists=0
