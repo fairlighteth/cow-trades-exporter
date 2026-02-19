@@ -417,26 +417,45 @@ orphan_count=$(wc -l < "$ORPHAN_FILE" | tr -d ' ')
 echo "  ${orphan_count} orphaned order UIDs (eth-flow / programmatic)"
 
 if [ "$orphan_count" -gt 0 ]; then
-    echo "  Fetching order details..."
+    echo "  Fetching order details (batch mode via transaction lookup)..."
     EXTRA_FILE=$(mktemp)
     echo "[]" > "$EXTRA_FILE"
     fetched=0
 
-    while IFS= read -r uid; do
-        [ -z "$uid" ] && continue
+    # Convert orphan UIDs to JSON array for efficient jq set-lookups
+    ORPHAN_UIDS_JSON=$(mktemp)
+    jq -R -s 'split("\n") | map(select(length > 0))' "$ORPHAN_FILE" > "$ORPHAN_UIDS_JSON"
 
-        # Which chain did this trade come from?
-        trade_chain=$(jq -r --arg uid "$uid" '
-            [.[] | select(.orderUid == $uid) | ._chain] | first // empty
-        ' "$TRADES_FILE")
-        [ -z "$trade_chain" ] && continue
+    # ── Strategy: batch-fetch via /transactions/{txHash}/orders ──
+    # Each CoW settlement tx can contain up to ~120 orders, so fetching
+    # by txHash resolves many orphans per API call instead of one-by-one.
+    # This drastically reduces request count and rate-limit risk.
+
+    # Group orphan UIDs by unique (chain, txHash)
+    TX_GROUPS_FILE=$(mktemp)
+    jq -n --slurpfile trades "$TRADES_FILE" --slurpfile orphans "$ORPHAN_UIDS_JSON" '
+        ($orphans[0] | map({key: ., value: true}) | from_entries) as $oset |
+        [$trades[0][] | select($oset[.orderUid])] |
+        map({chain: (._chain // ""), txHash: (.txHash // "")}) |
+        map(select(.txHash != "" and .chain != "")) |
+        unique_by(.chain + ":" + .txHash)
+    ' > "$TX_GROUPS_FILE" 2>/dev/null || echo "[]" > "$TX_GROUPS_FILE"
+
+    tx_group_count=$(jq 'length' "$TX_GROUPS_FILE")
+    echo "  Grouped into ${tx_group_count} settlement transactions"
+
+    # Fetch all orders per settlement tx, filter to orphans we need
+    for (( gi=0; gi<tx_group_count; gi++ )); do
+        tx_chain=$(jq -r ".[$gi].chain" "$TX_GROUPS_FILE")
+        tx_hash=$(jq -r ".[$gi].txHash" "$TX_GROUPS_FILE")
+        [ -z "$tx_chain" ] || [ -z "$tx_hash" ] && continue
 
         # Find API for this chain
         api=""
         chain_id=""
         explorer=""
         for (( ci=0; ci<chain_count; ci++ )); do
-            if [ "${CHAIN_NAMES[$ci]}" = "$trade_chain" ]; then
+            if [ "${CHAIN_NAMES[$ci]}" = "$tx_chain" ]; then
                 api="${CHAIN_APIS[$ci]}"
                 chain_id="${CHAIN_IDS[$ci]}"
                 explorer="${CHAIN_EXPLORERS[$ci]}"
@@ -446,26 +465,85 @@ if [ "$orphan_count" -gt 0 ]; then
         [ -z "$api" ] && continue
 
         RESP_FILE=$(mktemp)
-        api_get "${api}/api/v1/orders/${uid}" 15 > "$RESP_FILE"
+        api_get "${api}/api/v1/transactions/${tx_hash}/orders" 30 > "$RESP_FILE"
 
-        if jq -e '.uid' "$RESP_FILE" &>/dev/null 2>&1; then
-            jq --arg chain "$trade_chain" --arg chainId "$chain_id" --arg explorer "$explorer" '
-                [. + { _chain: $chain, _chainId: ($chainId|tonumber), _explorer: $explorer }]
+        if jq -e 'type == "array" and length > 0' "$RESP_FILE" &>/dev/null 2>&1; then
+            # Keep only the orphan UIDs we need, add chain metadata
+            jq --arg chain "$tx_chain" --arg chainId "$chain_id" --arg explorer "$explorer" \
+               --slurpfile orphans "$ORPHAN_UIDS_JSON" '
+                ($orphans[0] | map({key: ., value: true}) | from_entries) as $oset |
+                [ .[] | select($oset[.uid]) |
+                  . + { _chain: $chain, _chainId: ($chainId|tonumber), _explorer: $explorer }
+                ]
             ' "$RESP_FILE" > "$TMPJSON"
-            json_array_append "$EXTRA_FILE" "$TMPJSON"
-            fetched=$((fetched + 1))
+
+            batch_count=$(jq 'length' "$TMPJSON")
+            if [ "$batch_count" -gt 0 ]; then
+                json_array_append "$EXTRA_FILE" "$TMPJSON"
+                fetched=$((fetched + batch_count))
+            fi
         fi
         rm -f "$RESP_FILE"
 
-        # Progress
-        if [ $((fetched % 20)) -eq 0 ] && [ "$fetched" -gt 0 ]; then
-            printf "\r  %d / %d fetched..." "$fetched" "$orphan_count" >&2
-        fi
-
+        printf "\r  %d / %d txs fetched (%d orders resolved)..." "$((gi + 1))" "$tx_group_count" "$fetched" >&2
         sleep "$API_DELAY"
-    done < "$ORPHAN_FILE"
+    done
 
-    printf "\r  %d / %d fetched.      \n" "$fetched" "$orphan_count" >&2
+    if [ "$tx_group_count" -gt 0 ]; then
+        printf "\r  %d / %d txs fetched (%d orders resolved).      \n" "$tx_group_count" "$tx_group_count" "$fetched" >&2
+    fi
+
+    # ── Fallback: fetch remaining orphans individually ──
+    # Handles orphans without a txHash or failed batch fetches
+    REMAINING_FILE=$(mktemp)
+    jq -rn --slurpfile extra "$EXTRA_FILE" --slurpfile orphans "$ORPHAN_UIDS_JSON" '
+        ($extra[0] | map(.uid) | map({key: ., value: true}) | from_entries) as $resolved |
+        $orphans[0][] | select($resolved[.] | not)
+    ' > "$REMAINING_FILE" 2>/dev/null || true
+
+    remaining_count=$(wc -l < "$REMAINING_FILE" | tr -d ' ')
+
+    if [ "$remaining_count" -gt 0 ]; then
+        echo "  ${remaining_count} orphans not in any transaction — fetching individually..."
+        while IFS= read -r uid; do
+            [ -z "$uid" ] && continue
+
+            trade_chain=$(jq -r --arg uid "$uid" '
+                [.[] | select(.orderUid == $uid) | ._chain] | first // empty
+            ' "$TRADES_FILE")
+            [ -z "$trade_chain" ] && continue
+
+            api=""
+            chain_id=""
+            explorer=""
+            for (( ci=0; ci<chain_count; ci++ )); do
+                if [ "${CHAIN_NAMES[$ci]}" = "$trade_chain" ]; then
+                    api="${CHAIN_APIS[$ci]}"
+                    chain_id="${CHAIN_IDS[$ci]}"
+                    explorer="${CHAIN_EXPLORERS[$ci]}"
+                    break
+                fi
+            done
+            [ -z "$api" ] && continue
+
+            RESP_FILE=$(mktemp)
+            api_get "${api}/api/v1/orders/${uid}" 15 > "$RESP_FILE"
+
+            if jq -e '.uid' "$RESP_FILE" &>/dev/null 2>&1; then
+                jq --arg chain "$trade_chain" --arg chainId "$chain_id" --arg explorer "$explorer" '
+                    [. + { _chain: $chain, _chainId: ($chainId|tonumber), _explorer: $explorer }]
+                ' "$RESP_FILE" > "$TMPJSON"
+                json_array_append "$EXTRA_FILE" "$TMPJSON"
+                fetched=$((fetched + 1))
+            fi
+            rm -f "$RESP_FILE"
+
+            sleep "$API_DELAY"
+        done < "$REMAINING_FILE"
+    fi
+
+    rm -f "$REMAINING_FILE" "$TX_GROUPS_FILE" "$ORPHAN_UIDS_JSON"
+    echo "  Total orphan orders resolved: ${fetched} / ${orphan_count}"
 
     # Merge extra orders into main orders
     json_array_append "$ORDERS_FILE" "$EXTRA_FILE"
