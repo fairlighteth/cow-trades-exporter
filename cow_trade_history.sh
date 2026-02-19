@@ -144,14 +144,14 @@ api_get() {
     tmpbody=$(mktemp)
     local http_code
 
-    http_code=$(curl -s -o "$tmpbody" -w "%{http_code}" --max-time "$max_time" "$url" 2>/dev/null || echo "000")
+    http_code=$(curl -s -o "$tmpbody" -w "%{http_code}" --max-time "$max_time" "$url" 2>/dev/null) || http_code="000"
 
     if [ "$http_code" = "000" ]; then
         warn "Network error / timeout: $url"
-        rm -f "$tmpbody"; echo "[]"; return 1
+        rm -f "$tmpbody"; echo "[]"; return 0
     elif [ "$http_code" != "200" ]; then
         warn "HTTP ${http_code}: $url"
-        rm -f "$tmpbody"; echo "[]"; return 1
+        rm -f "$tmpbody"; echo "[]"; return 0
     fi
 
     cat "$tmpbody"
