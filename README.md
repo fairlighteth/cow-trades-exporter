@@ -53,7 +53,113 @@ Ethereum · Gnosis · Arbitrum · Base · Avalanche · Polygon · BNB · Linea �
 | Partial Fill | `yes` / `no` |
 | Status | `fulfilled`, `traded`, etc. |
 
-## Quick start
+## Quick start (for complete beginners)
+
+Never used a terminal before? No problem. This section walks you through every step.
+
+### What is a terminal?
+
+A terminal (also called "command line" or "shell") is a text-based way to talk to your computer. Instead of clicking buttons, you type commands and press **Enter**. It looks like a black or white window with a blinking cursor.
+
+You don't need to install anything special — every Mac and Linux computer already has one.
+
+### Step 1: Open your terminal
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+**Option A — Spotlight (fastest):**
+1. Press **Cmd + Space** to open Spotlight
+2. Type **Terminal**
+3. Press **Enter**
+
+**Option B — Finder:**
+1. Open **Finder**
+2. Go to **Applications** > **Utilities**
+3. Double-click **Terminal**
+
+You'll see a window with a `$` or `%` prompt — that's where you type commands.
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+You'll need WSL (Windows Subsystem for Linux):
+1. Open **PowerShell** as Administrator
+2. Run: `wsl --install`
+3. Restart your computer
+4. Open **Ubuntu** from the Start menu
+
+Alternatively, use [Git Bash](https://gitforwindows.org/) which includes the tools you need.
+</details>
+
+<details>
+<summary><strong>Linux</strong></summary>
+
+Press **Ctrl + Alt + T**, or look for "Terminal" in your application menu.
+</details>
+
+### Step 2: Download the script
+
+Copy and paste this into your terminal, then press **Enter**:
+
+```bash
+curl -O https://raw.githubusercontent.com/fairlighteth/cow-trades-exporter/main/cow_trade_history.sh
+```
+
+This downloads the script file to your current folder (usually your home folder).
+
+Then make it executable (this tells your computer it's OK to run this file):
+
+```bash
+chmod +x cow_trade_history.sh
+```
+
+### Step 3: Run it
+
+**Option A — Provide your wallet address directly:**
+
+```bash
+./cow_trade_history.sh 0xYOUR_WALLET_ADDRESS_HERE
+```
+
+Replace `0xYOUR_WALLET_ADDRESS_HERE` with your actual Ethereum wallet address (the `0x...` address you use in CoW Swap).
+
+**Option B — Run interactively (it will ask you for the address):**
+
+```bash
+./cow_trade_history.sh
+```
+
+### Step 4: Find your CSV file
+
+When the script finishes, it tells you where the file was saved. It will be in a folder called `cow_exports` inside wherever you ran the script:
+
+```
+./cow_exports/cow_trades_<addr>_<timestamp>.csv
+```
+
+To open the folder in Finder (macOS):
+
+```bash
+open cow_exports
+```
+
+You can open the `.csv` file with Excel, Google Sheets, Numbers, or any spreadsheet app.
+
+### Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| `permission denied` | Run `chmod +x cow_trade_history.sh` and try again |
+| `command not found: jq` | The script tries to install `jq` automatically. If it can't, run `brew install jq` (macOS) or `sudo apt install jq` (Linux) |
+| `curl: command not found` | This is very rare — `curl` comes pre-installed. On Linux try `sudo apt install curl` |
+| Script shows 0 trades | Double-check your wallet address. Make sure it's the address you used on CoW Swap |
+| `No such file or directory` | Make sure you're in the same folder where you downloaded the script. Run `ls` to check — you should see `cow_trade_history.sh` listed |
+
+---
+
+## Quick start (for developers)
 
 ```bash
 # Download
@@ -73,10 +179,10 @@ Output lands in `./cow_exports/cow_trades_<addr>_<timestamp>.csv`.
 
 | Dependency | macOS | Linux |
 |---|---|---|
-| `curl` | ✅ Built-in | ✅ Built-in |
-| `perl` | ✅ Built-in | ✅ Built-in |
-| `jq` | ❌ Auto-installs via Homebrew | ❌ Auto-installs via apt/dnf |
-| `bash` 3.2+ | ✅ Built-in | ✅ Built-in |
+| `curl` | Built-in | Built-in |
+| `perl` | Built-in | Built-in |
+| `jq` | Auto-installs via Homebrew | Auto-installs via apt/dnf |
+| `bash` 3.2+ | Built-in | Built-in |
 
 The script detects if `jq` is missing and attempts to install it automatically. If that fails, it prints instructions.
 
